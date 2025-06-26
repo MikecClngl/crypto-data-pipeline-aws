@@ -1,0 +1,117 @@
+{
+    "Comment": "Pipeline E2E per BTC e XMR",
+    "StartAt": "RunTransformationsInParallel",
+    "States": {
+      "RunTransformationsInParallel": {
+        "Type": "Parallel",
+        "Branches": [
+          {
+            "StartAt": "RawToSilverBTC",
+            "States": {
+              "RawToSilverBTC": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {
+                  "JobName": "raw-silver-btc"
+                },
+                "Next": "SilverToGoldenBTC",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "HandleErrorBTC"
+                  }
+                ]
+              },
+              "SilverToGoldenBTC": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {
+                  "JobName": "silver-gold-btc"
+                },
+                "End": true,
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "HandleErrorBTC"
+                  }
+                ]
+              },
+              "HandleErrorBTC": {
+                "Type": "Fail",
+                "Error": "BTCPipelineFailed",
+                "Cause": "Errore nella pipeline BTC"
+              }
+            }
+          },
+          {
+            "StartAt": "RawToSilverXMR",
+            "States": {
+              "RawToSilverXMR": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {
+                  "JobName": "raw-silver-xmr"
+                },
+                "Next": "SilverToGoldenXMR",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "HandleErrorXMR"
+                  }
+                ]
+              },
+              "SilverToGoldenXMR": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                "Parameters": {
+                  "JobName": "silver-gold-xmr"
+                },
+                "End": true,
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "HandleErrorXMR"
+                  }
+                ]
+              },
+              "HandleErrorXMR": {
+                "Type": "Fail",
+                "Error": "XMRPipelineFailed",
+                "Cause": "Errore nella pipeline XMR"
+              }
+            }
+          }
+        ],
+        "Next": "LoadToRedshift"
+      },
+      "LoadToRedshift": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::glue:startJobRun.sync",
+        "Parameters": {
+          "JobName": "load_redshift"
+        },
+        "End": true,
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleErrorRedshift"
+          }
+        ]
+      },
+      "HandleErrorRedshift": {
+        "Type": "Fail",
+        "Error": "RedshiftLoadFailed",
+        "Cause": "Errore durante il caricamento in Redshift"
+      }
+    }
+  }
